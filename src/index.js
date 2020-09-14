@@ -1,17 +1,88 @@
-import React from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import ReactDOM from 'react-dom';
-import './index.css';
-import App from './App';
-import * as serviceWorker from './serviceWorker';
+
+const App = () => {
+    const [value, setValue] = useState(1);
+    const [visible, setVisible] = useState(true);
+
+    if (visible) {
+        return (
+            <div>
+                <button
+                    onClick={() => (value < 60) ? setValue((v => v + 1)) : null}>+</button>
+                <button
+                    onClick={() => setVisible(false)}>hide</button>
+                <PlanetInfo id={value} />
+            </div>
+        );
+    } else {
+        return <button onClick={() => { setVisible(true) }}>show</button>;
+    }
+};
+
+
+const getPlanet = (id) => {
+    return fetch(`https://swapi.dev/api/planets/${id}/`)
+        .then(res => res.json())
+        .then(data => data);
+};
+
+const useRequest = (request) => {
+
+    const initialState = useMemo(()=>({
+        data: null,
+        loading: true,
+        error: null
+    }), []);
+
+    const [dataState, setDataState] = useState(initialState);
+
+    useEffect(() => {
+        setDataState(initialState);
+        let cancelled = false;
+        request()
+            .then(data => !cancelled && setDataState({
+                data,
+                loading: false,
+                error: null
+            }))
+            .catch(error=>!cancelled && setDataState({
+                data: null,
+                loading: false,
+                error
+            }));
+
+        return () => cancelled = true;
+    }, [request]);
+
+    return dataState;
+}
+
+const usePlanetInfo = (id) => {
+
+    const request = useCallback(() => getPlanet(id), [id]);
+    return useRequest(request);
+}
+
+const PlanetInfo = ({ id }) => {
+    const {data, loading, error} = usePlanetInfo(id);
+
+    if(error){
+        return <div>Could not get planet info</div>;
+    }
+
+    if(loading){
+        return <div>Loading...</div>
+    }
+
+    return (
+        <div>
+            {id} - {data.name}
+        </div>
+    );
+}
 
 ReactDOM.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-  document.getElementById('root')
+    <App />,
+    document.getElementById('root')
 );
-
-// If you want your app to work offline and load faster, you can change
-// unregister() to register() below. Note this comes with some pitfalls.
-// Learn more about service workers: https://bit.ly/CRA-PWA
-serviceWorker.unregister();
